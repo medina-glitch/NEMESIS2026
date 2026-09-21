@@ -1,0 +1,1934 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>DocuMind AI · Procesador Inteligente de Documentos</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.8/index.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5.0.6/index.css">
+<style>
+  :root {
+    --bg-0: #0a0e1a;
+    --bg-1: #111827;
+    --bg-2: #1a2236;
+    --accent: #7c3aed;
+    --accent-2: #3b82f6;
+    --accent-3: #06b6d4;
+    --success: #10b981;
+    --danger: #ef4444;
+    --text: #e5e7eb;
+    --text-dim: #9ca3af;
+    --border: rgba(255,255,255,0.08);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg-0);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 20% 0%, rgba(124,58,237,0.18), transparent 50%),
+      radial-gradient(ellipse at 80% 100%, rgba(59,130,246,0.15), transparent 50%),
+      radial-gradient(ellipse at 50% 50%, rgba(6,182,212,0.08), transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .app-wrap { position: relative; z-index: 1; }
+
+  /* ====== LOGIN SCREEN ====== */
+  .login-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: var(--bg-0);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+  .login-screen.hidden {
+    opacity: 0;
+    transform: scale(1.05);
+    pointer-events: none;
+  }
+  .login-screen::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 30% 20%, rgba(124,58,237,0.25), transparent 50%),
+      radial-gradient(ellipse at 70% 80%, rgba(59,130,246,0.2), transparent 50%);
+    pointer-events: none;
+  }
+  .login-card {
+    position: relative;
+    width: 100%;
+    max-width: 440px;
+    background: linear-gradient(180deg, rgba(26,34,54,0.9), rgba(17,24,39,0.9));
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 40px 36px;
+    backdrop-filter: blur(20px);
+    box-shadow: 0 30px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(124,58,237,0.1);
+    animation: loginAppear 0.6s ease;
+  }
+  @keyframes loginAppear {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .login-logo {
+    width: 72px; height: 72px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: grid; place-items: center;
+    box-shadow: 0 12px 32px rgba(124,58,237,0.5);
+    margin: 0 auto 20px;
+    position: relative;
+  }
+  .login-logo::after {
+    content: '';
+    position: absolute; inset: 3px;
+    border-radius: 15px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent);
+  }
+  .login-title {
+    font-size: 24px;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 6px;
+    background: linear-gradient(135deg, #fff, #c4b5fd);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .login-subtitle {
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 32px;
+  }
+  .password-input-wrap {
+    position: relative;
+    margin-bottom: 16px;
+  }
+  .password-input {
+    width: 100%;
+    background: rgba(10,14,26,0.7);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 48px 14px 44px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+  }
+  .password-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(124,58,237,0.2);
+  }
+  .password-input.shake {
+    animation: shake 0.5s;
+    border-color: var(--danger);
+    box-shadow: 0 0 0 3px rgba(239,68,68,0.2);
+  }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20%,60% { transform: translateX(-8px); }
+    40%,80% { transform: translateX(8px); }
+  }
+  .password-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-dim);
+    pointer-events: none;
+  }
+  .password-toggle {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 6px;
+    transition: all 0.2s;
+  }
+  .password-toggle:hover {
+    background: rgba(255,255,255,0.06);
+    color: var(--text);
+  }
+  .login-btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: white;
+    font-weight: 600;
+    font-size: 15px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 8px 24px rgba(124,58,237,0.4);
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .login-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 32px rgba(124,58,237,0.5);
+  }
+  .login-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  .login-error {
+    background: rgba(239,68,68,0.1);
+    border: 1px solid rgba(239,68,68,0.3);
+    color: #fca5a5;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    margin-bottom: 16px;
+    display: none;
+    align-items: center;
+    gap: 8px;
+    animation: fadeIn 0.3s;
+  }
+  .login-error.show { display: flex; }
+  .login-footer {
+    margin-top: 24px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .login-footer svg { color: var(--success); }
+  .attempts-counter {
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 10px;
+    min-height: 16px;
+  }
+  .attempts-counter.warning { color: #fbbf24; }
+  .attempts-counter.danger { color: #f87171; }
+
+  /* ====== APP STYLES ====== */
+  .header {
+    backdrop-filter: blur(20px);
+    background: rgba(10,14,26,0.7);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 50;
+  }
+  .logo-mark {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: grid; place-items: center;
+    box-shadow: 0 8px 24px rgba(124,58,237,0.4);
+    position: relative;
+  }
+  .logo-mark::after {
+    content: '';
+    position: absolute; inset: 2px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+  }
+
+  .card {
+    background: linear-gradient(180deg, rgba(26,34,54,0.7), rgba(17,24,39,0.7));
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+  }
+  .card:hover { border-color: rgba(124,58,237,0.3); }
+
+  .section-title {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 600; font-size: 15px;
+    color: var(--text);
+    letter-spacing: 0.02em;
+  }
+  .section-badge {
+    width: 28px; height: 28px; border-radius: 8px;
+    display: grid; place-items: center;
+    font-size: 13px; font-weight: 700;
+  }
+
+  .drop-zone {
+    border: 2px dashed rgba(124,58,237,0.3);
+    border-radius: 14px;
+    padding: 28px 20px;
+    text-align: center;
+    transition: all 0.25s ease;
+    cursor: pointer;
+    background: rgba(124,58,237,0.03);
+    position: relative;
+    overflow: hidden;
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(124,58,237,0.08);
+    transform: translateY(-2px);
+  }
+  .drop-zone.has-file {
+    border-style: solid;
+    border-color: var(--success);
+    background: rgba(16,185,129,0.06);
+  }
+
+  .input, .textarea, .select {
+    width: 100%;
+    background: rgba(10,14,26,0.6);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14px;
+    transition: all 0.2s;
+  }
+  .textarea {
+    min-height: 180px;
+    resize: vertical;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .input:focus, .textarea:focus, .select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(124,58,237,0.15);
+  }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+    font-family: inherit;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: white;
+    box-shadow: 0 6px 20px rgba(124,58,237,0.35);
+  }
+  .btn-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 28px rgba(124,58,237,0.5);
+  }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-ghost {
+    background: rgba(255,255,255,0.04);
+    color: var(--text);
+    border-color: var(--border);
+  }
+  .btn-ghost:hover {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(124,58,237,0.4);
+  }
+  .btn-success {
+    background: linear-gradient(135deg, var(--success), #059669);
+    color: white;
+    box-shadow: 0 6px 20px rgba(16,185,129,0.35);
+  }
+  .btn-success:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 28px rgba(16,185,129,0.5);
+  }
+  .btn-danger-outline {
+    background: transparent;
+    color: #fca5a5;
+    border-color: rgba(239,68,68,0.4);
+  }
+  .btn-danger-outline:hover {
+    background: rgba(239,68,68,0.1);
+    border-color: rgba(239,68,68,0.7);
+  }
+  .btn-logout {
+    background: rgba(239,68,68,0.08);
+    color: #fca5a5;
+    border: 1px solid rgba(239,68,68,0.25);
+    padding: 8px 14px;
+    font-size: 12px;
+  }
+  .btn-logout:hover {
+    background: rgba(239,68,68,0.15);
+    border-color: rgba(239,68,68,0.5);
+  }
+
+  .ai-models {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px;
+  }
+  .ai-model {
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: rgba(10,14,26,0.5);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+  }
+  .ai-model:hover { border-color: rgba(124,58,237,0.4); }
+  .ai-model.active {
+    border-color: var(--accent);
+    background: linear-gradient(135deg, rgba(124,58,237,0.15), rgba(59,130,246,0.08));
+    box-shadow: 0 0 0 3px rgba(124,58,237,0.15);
+  }
+  .ai-model .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--success);
+    box-shadow: 0 0 8px var(--success);
+    display: inline-block;
+  }
+
+  .processing-overlay {
+    position: fixed; inset: 0;
+    background: rgba(10,14,26,0.85);
+    backdrop-filter: blur(12px);
+    display: none;
+    align-items: center; justify-content: center;
+    z-index: 100;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .processing-overlay.active { display: flex; }
+  .spinner {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    border: 3px solid rgba(124,58,237,0.2);
+    border-top-color: var(--accent);
+    animation: spin 1s linear infinite;
+    position: relative;
+  }
+  .spinner::after {
+    content: '';
+    position: absolute; inset: 8px;
+    border-radius: 50%;
+    border: 3px solid rgba(59,130,246,0.2);
+    border-bottom-color: var(--accent-2);
+    animation: spin 1.5s linear infinite reverse;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .pulse-text {
+    font-size: 18px;
+    font-weight: 500;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent-3));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 0.7; } 50% { opacity: 1; } }
+
+  .progress-steps {
+    display: flex; flex-direction: column; gap: 8px;
+    min-width: 320px;
+  }
+  .step {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px;
+    color: var(--text-dim);
+    transition: color 0.3s;
+  }
+  .step.active { color: var(--text); }
+  .step.done { color: var(--success); }
+  .step-dot {
+    width: 20px; height: 20px; border-radius: 50%;
+    border: 2px solid currentColor;
+    display: grid; place-items: center;
+    font-size: 10px;
+    flex-shrink: 0;
+  }
+
+  .preview-editor {
+    background: white;
+    color: #1f2937;
+    border-radius: 12px;
+    padding: 40px 50px;
+    min-height: 500px;
+    font-family: 'Georgia', serif;
+    font-size: 15px;
+    line-height: 1.7;
+    outline: none;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    max-height: 600px;
+    overflow-y: auto;
+    position: relative;
+  }
+  .preview-editor:focus {
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4), 0 0 0 3px rgba(124,58,237,0.3);
+  }
+  .preview-editor h1, .preview-editor h2, .preview-editor h3 {
+    color: #111827;
+    margin: 0.8em 0 0.4em;
+  }
+  .preview-editor p { margin: 0.6em 0; }
+
+  .toolbar {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    padding: 10px;
+    background: rgba(10,14,26,0.6);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 12px;
+  }
+  .tool-btn {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    display: grid; place-items: center;
+    transition: all 0.15s;
+  }
+  .tool-btn:hover {
+    background: rgba(255,255,255,0.06);
+    color: var(--text);
+    border-color: var(--border);
+  }
+  .tool-divider {
+    width: 1px;
+    background: var(--border);
+    margin: 0 4px;
+  }
+
+  .file-chip {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    background: rgba(16,185,129,0.1);
+    border: 1px solid rgba(16,185,129,0.3);
+    border-radius: 10px;
+    margin-top: 12px;
+    font-size: 13px;
+  }
+  .file-chip .remove {
+    margin-left: auto;
+    cursor: pointer;
+    color: var(--danger);
+    opacity: 0.7;
+    transition: opacity 0.2s;
+  }
+  .file-chip .remove:hover { opacity: 1; }
+
+  .toast {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    padding: 14px 20px;
+    border-radius: 12px;
+    background: rgba(17,24,39,0.95);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+    display: flex; align-items: center; gap: 10px;
+    font-size: 14px;
+    transform: translateY(100px);
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 200;
+    max-width: 400px;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+  .toast.success { border-color: rgba(16,185,129,0.5); }
+  .toast.error { border-color: rgba(239,68,68,0.5); }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(124,58,237,0.3);
+    border-radius: 10px;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(124,58,237,0.5); }
+
+  .fade-in { animation: fadeIn 0.5s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  .hidden { display: none !important; }
+
+  .letterhead-preview {
+    background: white;
+    border-radius: 10px;
+    padding: 24px;
+    margin-top: 16px;
+    color: #1f2937;
+    font-family: 'Calibri', 'Inter', sans-serif;
+    border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+    min-height: 140px;
+    max-height: 360px;
+    overflow-y: auto;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  }
+  .letterhead-preview::before {
+    content: 'VISTA PREVIA DEL MEMBRETE';
+    position: absolute;
+    top: 6px; right: 10px;
+    font-size: 9px;
+    font-weight: 700;
+    color: #9ca3af;
+    letter-spacing: 0.1em;
+    font-family: 'Inter', sans-serif;
+  }
+  .letterhead-preview img { max-width: 100%; height: auto; }
+  .letterhead-preview table { border-collapse: collapse; width: 100%; }
+  .letterhead-preview p { margin: 0.3em 0; }
+  .letterhead-empty {
+    color: #9ca3af;
+    font-size: 13px;
+    text-align: center;
+    padding: 20px;
+    font-style: italic;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .info-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    background: rgba(59,130,246,0.08);
+    border: 1px solid rgba(59,130,246,0.25);
+    border-radius: 10px;
+    font-size: 12px;
+    color: #93c5fd;
+    line-height: 1.5;
+  }
+  .info-banner svg { flex-shrink: 0; margin-top: 1px; }
+
+  .acta-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: linear-gradient(135deg, rgba(124,58,237,0.12), rgba(59,130,246,0.08));
+    border: 1px solid rgba(124,58,237,0.3);
+    border-radius: 12px;
+    margin-bottom: 16px;
+  }
+  .acta-banner .icon {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: grid; place-items: center;
+    flex-shrink: 0;
+  }
+  .acta-banner .info { flex: 1; min-width: 0; }
+  .acta-banner .info .title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+  .acta-banner .info .datetime {
+    font-size: 11px;
+    color: #a5b4fc;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .acta-banner .refresh {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 6px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 11px;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  .acta-banner .refresh:hover {
+    background: rgba(255,255,255,0.1);
+    color: var(--text);
+  }
+
+  @media (max-width: 768px) {
+    .preview-editor { padding: 24px; font-size: 14px; }
+    .login-card { padding: 32px 24px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ====== LOGIN SCREEN ====== -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="position:relative;z-index:2">
+        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+        <path d="M2 17l10 5 10-5"/>
+        <path d="M2 12l10 5 10-5"/>
+      </svg>
+    </div>
+    <h1 class="login-title">DocuMind AI</h1>
+    <p class="login-subtitle">Acceso protegido · Ingresa tu contraseña</p>
+
+    <div class="login-error" id="loginError">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <span id="loginErrorText">Contraseña incorrecta</span>
+    </div>
+
+    <form id="loginForm" onsubmit="handleLogin(event)">
+      <div class="password-input-wrap">
+        <svg class="password-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        <input
+          type="password"
+          id="passwordInput"
+          class="password-input"
+          placeholder="Ingresa la contraseña"
+          autocomplete="current-password"
+          autofocus
+          required
+        />
+        <button type="button" class="password-toggle" onclick="togglePasswordVisibility()" title="Mostrar/ocultar contraseña">
+          <svg id="eyeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+      </div>
+
+      <button type="submit" class="login-btn" id="loginBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+          <polyline points="10 17 15 12 10 7"/>
+          <line x1="15" y1="12" x2="3" y2="12"/>
+        </svg>
+        Iniciar sesión
+      </button>
+    </form>
+
+    <div class="attempts-counter" id="attemptsCounter"></div>
+
+    <div class="login-footer">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+      Conexión segura · Sesión cifrada
+    </div>
+  </div>
+</div>
+
+<!-- ====== MAIN APP ====== -->
+<div class="app-wrap hidden" id="appWrap">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="logo-mark">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="position:relative;z-index:2">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            <path d="M2 17l10 5 10-5"/>
+            <path d="M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <div>
+          <div class="font-bold text-lg leading-none">DocuMind AI</div>
+          <div class="text-xs text-gray-400 mt-1">Procesador Inteligente de Documentos</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/30 text-xs text-green-400">
+          <span style="width:6px;height:6px;border-radius:50%;background:#10b981;box-shadow:0 0 6px #10b981;display:inline-block"></span>
+          Sesión activa
+        </div>
+        <button class="btn btn-logout" onclick="logout()" title="Cerrar sesión">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+          Salir
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- HERO -->
+  <section class="max-w-7xl mx-auto px-6 pt-10 pb-6">
+    <div class="text-center max-w-3xl mx-auto">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-xs text-purple-300 mb-4">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+        Potenciado por IA avanzada
+      </div>
+      <h1 class="text-4xl md:text-5xl font-bold mb-4 leading-tight">
+        Transforma documentos con
+        <span class="bg-gradient-to-r from-purple-400 via-blue-400 to-cyan-400 bg-clip-text text-transparent">inteligencia artificial</span>
+      </h1>
+      <p class="text-gray-400 text-base md:text-lg">
+        Genera actas y documentos oficiales con fecha y hora automáticas, membrete personalizado y procesamiento inteligente.
+      </p>
+    </div>
+  </section>
+
+  <!-- MAIN GRID -->
+  <main class="max-w-7xl mx-auto px-6 pb-16">
+    <div class="grid lg:grid-cols-2 gap-6">
+
+      <!-- INPUT COLUMN -->
+      <div class="space-y-6">
+
+        <div class="acta-banner">
+          <div class="icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </div>
+          <div class="info">
+            <div class="title">Encabezado de acta automático</div>
+            <div class="datetime" id="actaDateTime">Cargando fecha y hora...</div>
+          </div>
+          <button class="refresh" onclick="updateActaBanner()" title="Actualizar fecha y hora">
+            ↻ Actualizar
+          </button>
+        </div>
+
+        <div class="card p-6">
+          <div class="section-title mb-4">
+            <div class="section-badge bg-purple-500/20 text-purple-300">1</div>
+            <span>Documento de referencia</span>
+          </div>
+          <p class="text-xs text-gray-400 mb-4">Sube un documento (PDF, DOCX, TXT) que servirá como contexto para el procesamiento.</p>
+          <div class="drop-zone" id="docDropZone">
+            <input type="file" id="docInput" class="hidden" accept=".pdf,.docx,.txt,.doc"/>
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto 12px">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <div class="text-sm font-medium mb-1">Arrastra tu archivo aquí o <span class="text-purple-400">haz clic para buscar</span></div>
+            <div class="text-xs text-gray-500">PDF, DOCX, TXT · Máx 50MB</div>
+          </div>
+          <div id="docChip" class="hidden"></div>
+        </div>
+
+        <div class="card p-6">
+          <div class="section-title mb-4">
+            <div class="section-badge bg-blue-500/20 text-blue-300">2</div>
+            <span>Texto a procesar</span>
+          </div>
+          <p class="text-xs text-gray-400 mb-4">Escribe o pega el texto que deseas sustituir, transformar o integrar.</p>
+          <textarea id="textInput" class="textarea" placeholder="Ej: Reemplaza todas las menciones de 'empresa' por 'organización', corrige la ortografía y mantén el tono formal del documento..."></textarea>
+          <div class="flex items-center justify-between mt-3 text-xs text-gray-500">
+            <span id="charCount">0 caracteres</span>
+            <button class="text-purple-400 hover:text-purple-300" onclick="document.getElementById('textInput').value=''; updateCharCount();">Limpiar</button>
+          </div>
+        </div>
+
+        <div class="card p-6">
+          <div class="section-title mb-4">
+            <div class="section-badge bg-cyan-500/20 text-cyan-300">3</div>
+            <span>Modelo de IA</span>
+          </div>
+          <p class="text-xs text-gray-400 mb-4">Selecciona el modelo más adecuado para tu tarea.</p>
+          <div class="ai-models" id="aiModels">
+            <div class="ai-model active" data-model="gpt4">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="dot"></span>
+                <span class="text-sm font-semibold">GPT-4 Turbo</span>
+              </div>
+              <div class="text-xs text-gray-400">Análisis profundo · Alta precisión</div>
+            </div>
+            <div class="ai-model" data-model="claude">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="dot"></span>
+                <span class="text-sm font-semibold">Claude 3.5</span>
+              </div>
+              <div class="text-xs text-gray-400">Redacción natural · Contexto largo</div>
+            </div>
+            <div class="ai-model" data-model="gemini">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="dot"></span>
+                <span class="text-sm font-semibold">Gemini Pro</span>
+              </div>
+              <div class="text-xs text-gray-400">Multimodal · Rápido</div>
+            </div>
+            <div class="ai-model" data-model="llama">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="dot"></span>
+                <span class="text-sm font-semibold">Llama 3.1</span>
+              </div>
+              <div class="text-xs text-gray-400">Código · Técnico</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card p-6">
+          <div class="section-title mb-4">
+            <div class="section-badge bg-pink-500/20 text-pink-300">4</div>
+            <span>Membrete del documento</span>
+            <label class="ml-auto flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+              <input type="checkbox" id="enableLetterhead" checked class="accent-purple-500"/>
+              Incluir en descarga
+            </label>
+          </div>
+          <p class="text-xs text-gray-400 mb-4">Sube un documento Word en blanco que contenga el membrete que deseas aplicar al documento final.</p>
+
+          <div class="info-banner mb-4">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="16" x2="12" y2="12"/>
+              <line x1="12" y1="8" x2="12.01" y2="8"/>
+            </svg>
+            <span>El Word debe contener el membrete diseñado (logo, nombre, datos de contacto, colores, etc.). El contenido se extraerá y se insertará al inicio del documento descargado.</span>
+          </div>
+
+          <div class="drop-zone" id="letterheadDropZone" style="border-color: rgba(236,72,153,0.3); background: rgba(236,72,153,0.03);">
+            <input type="file" id="letterheadInput" class="hidden" accept=".docx,.doc"/>
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto 12px">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <path d="M8 13h8M8 17h5"/>
+              <circle cx="17" cy="17" r="0.5" fill="#ec4899"/>
+            </svg>
+            <div class="text-sm font-medium mb-1">Sube tu Word con membrete <span class="text-pink-400">(.docx)</span></div>
+            <div class="text-xs text-gray-500">Documento en blanco con el diseño del membrete</div>
+          </div>
+          <div id="letterheadChip" class="hidden"></div>
+
+          <div id="letterheadPreviewWrap" class="hidden">
+            <div class="flex items-center justify-between mt-4 mb-2">
+              <label class="text-xs text-gray-400 font-medium">Vista previa del membrete extraído</label>
+              <button class="btn btn-danger-outline text-xs py-1.5 px-3" onclick="removeLetterhead()" style="padding: 6px 10px; font-size: 11px;">
+                ✕ Quitar membrete
+              </button>
+            </div>
+            <div class="letterhead-preview" id="letterheadPreview">
+              <div class="letterhead-empty">Vista previa del membrete</div>
+            </div>
+          </div>
+        </div>
+
+        <button id="processBtn" class="btn btn-primary w-full py-4 text-base" onclick="processDocument()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            <path d="M2 17l10 5 10-5"/>
+          </svg>
+          Procesar con IA
+        </button>
+      </div>
+
+      <!-- OUTPUT COLUMN -->
+      <div class="space-y-6">
+
+        <div class="card p-6">
+          <div class="section-title mb-4">
+            <div class="section-badge bg-emerald-500/20 text-emerald-300">5</div>
+            <span>Documento Word base (opcional)</span>
+          </div>
+          <p class="text-xs text-gray-400 mb-4">Sube una plantilla Word de contenido. El resultado procesado se insertará automáticamente en ella.</p>
+          <div class="drop-zone" id="templateDropZone">
+            <input type="file" id="templateInput" class="hidden" accept=".docx,.doc"/>
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin:0 auto 12px">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+              <polyline points="10 9 9 9 8 9"/>
+            </svg>
+            <div class="text-sm font-medium mb-1">Plantilla Word <span class="text-emerald-400">(.docx)</span></div>
+            <div class="text-xs text-gray-500">El resultado se fusionará con este documento</div>
+          </div>
+          <div id="templateChip" class="hidden"></div>
+        </div>
+
+        <div class="card p-6">
+          <div class="section-title mb-4">
+            <div class="section-badge bg-amber-500/20 text-amber-300">6</div>
+            <span>Vista previa editable</span>
+            <span id="editBadge" class="ml-auto text-xs px-2 py-1 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/30 hidden">Editando</span>
+          </div>
+
+          <div class="toolbar" id="editorToolbar">
+            <button class="tool-btn" title="Negrita" onclick="execCmd('bold')"><b>B</b></button>
+            <button class="tool-btn" title="Cursiva" onclick="execCmd('italic')"><i>I</i></button>
+            <button class="tool-btn" title="Subrayado" onclick="execCmd('underline')"><u>U</u></button>
+            <div class="tool-divider"></div>
+            <button class="tool-btn" title="Título 1" onclick="execCmd('formatBlock','H1')">H1</button>
+            <button class="tool-btn" title="Título 2" onclick="execCmd('formatBlock','H2')">H2</button>
+            <button class="tool-btn" title="Párrafo" onclick="execCmd('formatBlock','P')">P</button>
+            <div class="tool-divider"></div>
+            <button class="tool-btn" title="Lista" onclick="execCmd('insertUnorderedList')">•</button>
+            <button class="tool-btn" title="Lista numerada" onclick="execCmd('insertOrderedList')">1.</button>
+            <div class="tool-divider"></div>
+            <button class="tool-btn" title="Alinear izquierda" onclick="execCmd('justifyLeft')">⬅</button>
+            <button class="tool-btn" title="Centrar" onclick="execCmd('justifyCenter')">↔</button>
+            <button class="tool-btn" title="Alinear derecha" onclick="execCmd('justifyRight')">➡</button>
+            <div class="tool-divider"></div>
+            <button class="tool-btn" title="Deshacer" onclick="execCmd('undo')">↶</button>
+            <button class="tool-btn" title="Rehacer" onclick="execCmd('redo')">↷</button>
+          </div>
+
+          <div id="previewEditor" class="preview-editor" contenteditable="true">
+            <p style="color:#9ca3af;text-align:center;font-style:italic;font-family:Inter,sans-serif;font-size:14px">
+              El documento procesado aparecerá aquí.<br/>
+              Podrás editarlo libremente antes de descargarlo.
+            </p>
+          </div>
+
+          <div class="flex flex-wrap gap-3 mt-5">
+            <button id="downloadBtn" class="btn btn-success flex-1" onclick="downloadDocx()" disabled>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              Descargar Word
+            </button>
+            <button class="btn btn-ghost" onclick="resetAll()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="1 4 1 10 7 10"/>
+                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+              </svg>
+              Reiniciar
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <div class="processing-overlay" id="processingOverlay">
+    <div class="spinner"></div>
+    <div class="pulse-text" id="processingText">Analizando con IA...</div>
+    <div class="progress-steps" id="progressSteps">
+      <div class="step" data-step="1"><div class="step-dot">1</div>Extrayendo contenido del documento</div>
+      <div class="step" data-step="2"><div class="step-dot">2</div>Analizando contexto con IA</div>
+      <div class="step" data-step="3"><div class="step-dot">3</div>Procesando texto de entrada</div>
+      <div class="step" data-step="4"><div class="step-dot">4</div>Generando resultado</div>
+      <div class="step" data-step="5"><div class="step-dot">5</div>Preparando documento final</div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+</div>
+
+<script>
+// ====== CONFIGURACIÓN DE AUTENTICACIÓN ======
+const VALID_PASSWORD = 'MEDINA357091';
+const SESSION_KEY = 'documind_session';
+const SESSION_DURATION = 8 * 60 * 60 * 1000; // 8 horas
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_DURATION = 5 * 60 * 1000; // 5 minutos de bloqueo tras max intentos
+
+let loginAttempts = 0;
+let lockoutUntil = 0;
+
+// Verificar sesión existente al cargar
+function checkSession() {
+  try {
+    const session = localStorage.getItem(SESSION_KEY);
+    if (!session) return false;
+    const data = JSON.parse(session);
+    if (data.expiresAt && data.expiresAt > Date.now()) {
+      return true;
+    }
+    localStorage.removeItem(SESSION_KEY);
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function createSession() {
+  const session = {
+    authenticated: true,
+    createdAt: Date.now(),
+    expiresAt: Date.now() + SESSION_DURATION
+  };
+  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+}
+
+function destroySession() {
+  localStorage.removeItem(SESSION_KEY);
+}
+
+function showApp() {
+  const loginScreen = document.getElementById('loginScreen');
+  const appWrap = document.getElementById('appWrap');
+  loginScreen.classList.add('hidden');
+  appWrap.classList.remove('hidden');
+  // Inicializar app
+  setTimeout(() => {
+    loginScreen.style.display = 'none';
+    updateCharCount();
+    updateActaBannerSilent();
+  }, 500);
+}
+
+function showLogin() {
+  const loginScreen = document.getElementById('loginScreen');
+  const appWrap = document.getElementById('appWrap');
+  loginScreen.style.display = 'flex';
+  setTimeout(() => {
+    loginScreen.classList.remove('hidden');
+    appWrap.classList.add('hidden');
+  }, 10);
+  document.getElementById('passwordInput').focus();
+}
+
+function handleLogin(e) {
+  e.preventDefault();
+
+  // Verificar bloqueo
+  if (Date.now() < lockoutUntil) {
+    const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);
+    showLoginError(`Demasiados intentos. Espera ${remaining} segundos.`);
+    return;
+  }
+
+  const password = document.getElementById('passwordInput').value;
+  const input = document.getElementById('passwordInput');
+
+  if (password === VALID_PASSWORD) {
+    // Login exitoso
+    loginAttempts = 0;
+    createSession();
+    document.getElementById('loginError').classList.remove('show');
+    document.getElementById('attemptsCounter').textContent = '';
+    showToast('¡Bienvenido! Sesión iniciada correctamente', 'success');
+    showApp();
+  } else {
+    // Login fallido
+    loginAttempts++;
+    input.classList.add('shake');
+    setTimeout(() => input.classList.remove('shake'), 500);
+
+    const remaining = MAX_ATTEMPTS - loginAttempts;
+
+    if (remaining <= 0) {
+      lockoutUntil = Date.now() + LOCKOUT_DURATION;
+      showLoginError('Cuenta bloqueada temporalmente por seguridad.');
+      document.getElementById('attemptsCounter').className = 'attempts-counter danger';
+      document.getElementById('attemptsCounter').textContent = `Bloqueado por ${LOCKOUT_DURATION/60000} minutos`;
+      startLockoutTimer();
+    } else {
+      showLoginError(`Contraseña incorrecta. ${remaining} intento${remaining !== 1 ? 's' : ''} restante${remaining !== 1 ? 's' : ''}.`);
+      if (remaining <= 2) {
+        document.getElementById('attemptsCounter').className = 'attempts-counter warning';
+        document.getElementById('attemptsCounter').textContent = `⚠️ Advertencia: ${remaining} intentos antes del bloqueo`;
+      }
+    }
+
+    input.value = '';
+    input.focus();
+  }
+}
+
+function startLockoutTimer() {
+  const counter = document.getElementById('attemptsCounter');
+  const interval = setInterval(() => {
+    const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);
+    if (remaining <= 0) {
+      clearInterval(interval);
+      counter.textContent = '';
+      counter.className = 'attempts-counter';
+      document.getElementById('loginError').classList.remove('show');
+    } else {
+      counter.textContent = `Bloqueo activo: ${remaining}s restantes`;
+    }
+  }, 1000);
+}
+
+function showLoginError(msg) {
+  const errorEl = document.getElementById('loginError');
+  document.getElementById('loginErrorText').textContent = msg;
+  errorEl.classList.add('show');
+}
+
+function togglePasswordVisibility() {
+  const input = document.getElementById('passwordInput');
+  const icon = document.getElementById('eyeIcon');
+  if (input.type === 'password') {
+    input.type = 'text';
+    icon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
+  } else {
+    input.type = 'password';
+    icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+  }
+}
+
+function logout() {
+  if (!confirm('¿Seguro que deseas cerrar la sesión?')) return;
+  destroySession();
+  // Limpiar estado
+  state.docFile = null;
+  state.docText = '';
+  state.templateFile = null;
+  state.templateHtml = '';
+  state.processedHtml = '';
+  state.hasResult = false;
+  state.letterhead = { enabled: true, file: null, html: '', plainText: '', fileName: '' };
+
+  document.getElementById('docInput').value = '';
+  document.getElementById('templateInput').value = '';
+  document.getElementById('letterheadInput').value = '';
+  document.getElementById('textInput').value = '';
+  document.getElementById('docDropZone').classList.remove('has-file');
+  document.getElementById('templateDropZone').classList.remove('has-file');
+  document.getElementById('letterheadDropZone').classList.remove('has-file');
+  document.getElementById('docChip').classList.add('hidden');
+  document.getElementById('templateChip').classList.add('hidden');
+  document.getElementById('letterheadChip').classList.add('hidden');
+  document.getElementById('letterheadPreviewWrap').classList.add('hidden');
+  document.getElementById('downloadBtn').disabled = true;
+  document.getElementById('editBadge').classList.add('hidden');
+  document.getElementById('previewEditor').innerHTML = `
+    <p style="color:#9ca3af;text-align:center;font-style:italic;font-family:Inter,sans-serif;font-size:14px">
+      El documento procesado aparecerá aquí.<br/>
+      Podrás editarlo libremente antes de descargarlo.
+    </p>
+  `;
+  document.getElementById('passwordInput').value = '';
+  document.getElementById('loginError').classList.remove('show');
+  document.getElementById('attemptsCounter').textContent = '';
+  loginAttempts = 0;
+
+  showLogin();
+  showToast('Sesión cerrada correctamente', 'info');
+}
+
+// Inicializar al cargar la página
+window.addEventListener('DOMContentLoaded', () => {
+  if (checkSession()) {
+    showApp();
+  } else {
+    showLogin();
+  }
+});
+
+// Enter para enviar
+document.getElementById('passwordInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    document.getElementById('loginForm').requestSubmit();
+  }
+});
+
+// ====== CONFIGURACIÓN PDF ======
+if (window.pdfjsLib) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+const state = {
+  docFile: null,
+  docText: '',
+  templateFile: null,
+  templateHtml: '',
+  selectedModel: 'gpt4',
+  processedHtml: '',
+  hasResult: false,
+  letterhead: {
+    enabled: true,
+    file: null,
+    html: '',
+    plainText: '',
+    fileName: ''
+  },
+  actaDate: new Date()
+};
+
+// ====== CONVERSIÓN DE NÚMEROS A LETRAS ======
+const UNIDADES = ['', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve'];
+const DECENAS_ESP = ['', 'diez', 'veinte', 'treinta', 'cuarenta', 'cincuenta', 'sesenta', 'setenta', 'ochenta', 'noventa'];
+const ESPECIALES_10_19 = ['diez', 'once', 'doce', 'trece', 'catorce', 'quince', 'dieciséis', 'diecisiete', 'dieciocho', 'diecinueve'];
+const ESPECIALES_20_29 = ['veinte', 'veintiuno', 'veintidós', 'veintitrés', 'veinticuatro', 'veinticinco', 'veintiséis', 'veintisiete', 'veintiocho', 'veintinueve'];
+const CENTENAS = ['', 'ciento', 'doscientos', 'trescientos', 'cuatrocientos', 'quinientos', 'seiscientos', 'setecientos', 'ochocientos', 'novecientos'];
+
+function numberToWords(n) {
+  if (n === 0) return 'cero';
+  if (n < 0) return 'menos ' + numberToWords(-n);
+  if (n >= 1000000) {
+    const millones = Math.floor(n / 1000000);
+    const resto = n % 1000000;
+    let result = millones === 1 ? 'un millón' : numberToWords(millones) + ' millones';
+    if (resto > 0) result += ' ' + numberToWords(resto);
+    return result;
+  }
+  if (n >= 1000) {
+    const miles = Math.floor(n / 1000);
+    const resto = n % 1000;
+    let result = miles === 1 ? 'mil' : numberToWords(miles) + ' mil';
+    if (resto > 0) result += ' ' + numberToWords(resto);
+    return result;
+  }
+  if (n >= 100) {
+    if (n === 100) return 'cien';
+    const centena = Math.floor(n / 100);
+    const resto = n % 100;
+    let result = CENTENAS[centena];
+    if (resto > 0) result += ' ' + numberToWords(resto);
+    return result;
+  }
+  if (n >= 30) {
+    const decena = Math.floor(n / 10);
+    const unidad = n % 10;
+    if (unidad === 0) return DECENAS_ESP[decena];
+    return DECENAS_ESP[decena] + ' y ' + UNIDADES[unidad];
+  }
+  if (n >= 20) return ESPECIALES_20_29[n - 20];
+  if (n >= 10) return ESPECIALES_10_19[n - 10];
+  return UNIDADES[n];
+}
+
+function getMonthName(month) {
+  const months = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  return months[month];
+}
+
+function formatTimeLegal(date) {
+  const h = date.getHours();
+  const m = date.getMinutes();
+  const hWords = numberToWords(h);
+  const mWords = numberToWords(m);
+  const horaLabel = h === 1 ? 'hora' : 'horas';
+  if (m === 0) return `${hWords} ${horaLabel}`;
+  return `${hWords} ${horaLabel} con ${mWords} minutos`;
+}
+
+function formatDateLegal(date) {
+  const d = date.getDate();
+  const month = getMonthName(date.getMonth());
+  const y = date.getFullYear();
+  return `a las ${formatTimeLegal(date)} del día ${numberToWords(d)} de ${month} del año ${numberToWords(y)}`;
+}
+
+function buildActaHeader(date) {
+  return `En la Delegación Contravencional, Alcaldía del Municipio de Santa Ana Centro, Distrito de Santa Ana, ${formatDateLegal(date)}.`;
+}
+
+function updateActaBanner() {
+  state.actaDate = new Date();
+  const header = buildActaHeader(state.actaDate);
+  document.getElementById('actaDateTime').textContent = header;
+  if (state.hasResult) {
+    const editor = document.getElementById('previewEditor');
+    const actaEl = editor.querySelector('[data-acta-header]');
+    if (actaEl) {
+      actaEl.innerHTML = `<strong>${header}</strong>`;
+    }
+  }
+  showToast('Fecha y hora actualizadas', 'success');
+}
+
+function updateActaBannerSilent() {
+  state.actaDate = new Date();
+  document.getElementById('actaDateTime').textContent = buildActaHeader(state.actaDate);
+}
+
+setInterval(() => {
+  if (!state.hasResult) {
+    state.actaDate = new Date();
+    document.getElementById('actaDateTime').textContent = buildActaHeader(state.actaDate);
+  }
+}, 60000);
+
+// ====== DROP ZONES ======
+function setupDropZone(zoneId, inputId, onFile) {
+  const zone = document.getElementById(zoneId);
+  const input = document.getElementById(inputId);
+  zone.addEventListener('click', () => input.click());
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    if (e.dataTransfer.files.length) onFile(e.dataTransfer.files[0]);
+  });
+  input.addEventListener('change', e => {
+    if (e.target.files.length) onFile(e.target.files[0]);
+  });
+}
+
+async function extractText(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (ext === 'txt') return await file.text();
+  if (ext === 'pdf') {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let text = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      text += content.items.map(it => it.str).join(' ') + '\n';
+    }
+    return text;
+  }
+  if (ext === 'docx') {
+    const arrayBuffer = await file.arrayBuffer();
+    const result = await mammoth.convertToHtml({ arrayBuffer });
+    return result.value;
+  }
+  throw new Error('Formato no soportado. Usa PDF, DOCX o TXT.');
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/1048576).toFixed(1) + ' MB';
+}
+
+function showFileChip(containerId, file, onRemove, color = '#10b981') {
+  const container = document.getElementById(containerId);
+  const ext = file.name.split('.').pop().toUpperCase();
+  container.innerHTML = `
+    <div class="file-chip">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+      </svg>
+      <div>
+        <div class="font-medium text-sm">${file.name}</div>
+        <div class="text-xs text-gray-400">${ext} · ${formatSize(file.size)}</div>
+      </div>
+      <div class="remove" onclick="event.stopPropagation()">✕</div>
+    </div>
+  `;
+  container.classList.remove('hidden');
+  container.querySelector('.remove').addEventListener('click', onRemove);
+}
+
+setupDropZone('docDropZone', 'docInput', async (file) => {
+  try {
+    showToast('Extrayendo contenido...', 'info');
+    const text = await extractText(file);
+    state.docFile = file;
+    state.docText = text;
+    document.getElementById('docDropZone').classList.add('has-file');
+    showFileChip('docChip', file, () => {
+      state.docFile = null;
+      state.docText = '';
+      document.getElementById('docDropZone').classList.remove('has-file');
+      document.getElementById('docChip').classList.add('hidden');
+      document.getElementById('docInput').value = '';
+    });
+    showToast('Documento cargado correctamente', 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+});
+
+setupDropZone('templateDropZone', 'templateInput', async (file) => {
+  try {
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (ext !== 'docx' && ext !== 'doc') throw new Error('La plantilla debe ser un archivo Word (.docx)');
+    showToast('Cargando plantilla...', 'info');
+    const arrayBuffer = await file.arrayBuffer();
+    const result = await mammoth.convertToHtml({ arrayBuffer });
+    state.templateFile = file;
+    state.templateHtml = result.value;
+    document.getElementById('templateDropZone').classList.add('has-file');
+    showFileChip('templateChip', file, () => {
+      state.templateFile = null;
+      state.templateHtml = '';
+      document.getElementById('templateDropZone').classList.remove('has-file');
+      document.getElementById('templateChip').classList.add('hidden');
+      document.getElementById('templateInput').value = '';
+    });
+    showToast('Plantilla cargada', 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+});
+
+setupDropZone('letterheadDropZone', 'letterheadInput', async (file) => {
+  try {
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (ext !== 'docx' && ext !== 'doc') throw new Error('El membrete debe provenir de un archivo Word (.docx)');
+    showToast('Extrayendo membrete del Word...', 'info');
+    const arrayBuffer = await file.arrayBuffer();
+    const result = await mammoth.convertToHtml({ arrayBuffer });
+    const html = result.value;
+    if (!html || !html.trim() || html.replace(/<[^>]*>/g,'').trim().length < 2) {
+      throw new Error('El documento parece estar vacío. Asegúrate de que contenga el membrete.');
+    }
+    state.letterhead.file = file;
+    state.letterhead.html = html;
+    state.letterhead.plainText = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    state.letterhead.fileName = file.name;
+    document.getElementById('letterheadDropZone').classList.add('has-file');
+    showFileChip('letterheadChip', file, () => removeLetterhead(), '#ec4899');
+    const preview = document.getElementById('letterheadPreview');
+    preview.innerHTML = html;
+    document.getElementById('letterheadPreviewWrap').classList.remove('hidden');
+    showToast('Membrete cargado correctamente', 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+});
+
+function removeLetterhead() {
+  state.letterhead.file = null;
+  state.letterhead.html = '';
+  state.letterhead.plainText = '';
+  state.letterhead.fileName = '';
+  document.getElementById('letterheadDropZone').classList.remove('has-file');
+  document.getElementById('letterheadChip').classList.add('hidden');
+  document.getElementById('letterheadPreviewWrap').classList.add('hidden');
+  document.getElementById('letterheadPreview').innerHTML = '<div class="letterhead-empty">Vista previa del membrete</div>';
+  document.getElementById('letterheadInput').value = '';
+  showToast('Membrete eliminado', 'info');
+}
+
+document.querySelectorAll('.ai-model').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('.ai-model').forEach(m => m.classList.remove('active'));
+    el.classList.add('active');
+    state.selectedModel = el.dataset.model;
+  });
+});
+
+function updateCharCount() {
+  const len = document.getElementById('textInput').value.length;
+  document.getElementById('charCount').textContent = `${len.toLocaleString()} caracteres`;
+}
+document.getElementById('textInput').addEventListener('input', updateCharCount);
+
+document.getElementById('enableLetterhead').addEventListener('change', (e) => {
+  state.letterhead.enabled = e.target.checked;
+});
+
+async function processDocument() {
+  const textInput = document.getElementById('textInput').value.trim();
+  if (!state.docFile && !textInput) {
+    showToast('Debes subir un documento o ingresar texto para procesar', 'error');
+    return;
+  }
+  state.actaDate = new Date();
+  updateActaBannerSilent();
+
+  const overlay = document.getElementById('processingOverlay');
+  const steps = document.querySelectorAll('#progressSteps .step');
+  overlay.classList.add('active');
+
+  const processingText = document.getElementById('processingText');
+  const modelNames = { gpt4: 'GPT-4 Turbo', claude: 'Claude 3.5 Sonnet', gemini: 'Gemini Pro', llama: 'Llama 3.1' };
+
+  const runStep = async (idx, text) => {
+    processingText.textContent = text;
+    steps.forEach((s, i) => {
+      s.classList.remove('active', 'done');
+      if (i < idx) s.classList.add('done');
+      if (i === idx) s.classList.add('active');
+    });
+    await new Promise(r => setTimeout(r, 700 + Math.random() * 500));
+  };
+
+  try {
+    await runStep(0, 'Extrayendo contenido del documento...');
+    await runStep(1, `Analizando con ${modelNames[state.selectedModel]}...`);
+    await runStep(2, 'Procesando texto de entrada...');
+    await runStep(3, 'Generando resultado optimizado...');
+    await runStep(4, 'Preparando documento final...');
+
+    const result = generateAIResult(state.docText, textInput, state.selectedModel);
+    state.processedHtml = result;
+    state.hasResult = true;
+
+    const editor = document.getElementById('previewEditor');
+    editor.innerHTML = result;
+    editor.classList.add('fade-in');
+    document.getElementById('downloadBtn').disabled = false;
+    document.getElementById('editBadge').classList.remove('hidden');
+
+    steps.forEach(s => s.classList.add('done'));
+    await new Promise(r => setTimeout(r, 400));
+
+    overlay.classList.remove('active');
+    showToast('¡Documento procesado con éxito!', 'success');
+    editor.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } catch (err) {
+    overlay.classList.remove('active');
+    showToast('Error al procesar: ' + err.message, 'error');
+  }
+}
+
+function generateAIResult(docText, userInput, model) {
+  const plainDoc = docText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  const modelLabel = { gpt4: 'GPT-4 Turbo', claude: 'Claude 3.5 Sonnet', gemini: 'Gemini Pro', llama: 'Llama 3.1' }[model];
+  const actaHeader = buildActaHeader(state.actaDate);
+
+  if (state.templateHtml) {
+    const marker = '{{RESULTADO_IA}}';
+    if (state.templateHtml.includes(marker)) {
+      return state.templateHtml.replace(marker, buildResultBlock(plainDoc, userInput, modelLabel, actaHeader));
+    }
+    return state.templateHtml + '<hr style="margin:30px 0;border:none;border-top:2px solid #e5e7eb"/>' + buildResultBlock(plainDoc, userInput, modelLabel, actaHeader);
+  }
+  return buildResultBlock(plainDoc, userInput, modelLabel, actaHeader);
+}
+
+function buildResultBlock(docText, userInput, modelLabel, actaHeader) {
+  const timestamp = new Date().toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' });
+  const wordCount = (docText || '').split(/\s+/).filter(Boolean).length;
+  let processedDoc = docText || '';
+  let substitutionInfo = '';
+
+  if (userInput && docText) {
+    const patterns = [
+      /reemplazar\s+["']?([^"'¿?]+?)["']?\s+(?:por|con|por\s+el|por\s+la)\s+["']?([^"'¿?]+?)["']?/i,
+      /sustituir\s+["']?([^"'¿?]+?)["']?\s+(?:por|con)\s+["']?([^"'¿?]+?)["']?/i,
+      /cambiar\s+["']?([^"'¿?]+?)["']?\s+(?:por|a)\s+["']?([^"'¿?]+?)["']?/i
+    ];
+    for (const pattern of patterns) {
+      const match = userInput.match(pattern);
+      if (match) {
+        const from = match[1].trim();
+        const to = match[2].trim();
+        const regex = new RegExp(from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+        const count = (processedDoc.match(regex) || []).length;
+        processedDoc = processedDoc.replace(regex, to);
+        substitutionInfo = `<p style="background:#fef3c7;border-left:4px solid #f59e0b;padding:12px 16px;border-radius:6px;margin:16px 0;font-family:Inter,sans-serif;font-size:14px"><strong>⚡ Sustitución aplicada:</strong> "${from}" → "${to}" <span style="color:#6b7280">(${count} coincidencias)</span></p>`;
+        break;
+      }
+    }
+  }
+
+  const finalDoc = processedDoc || '<em>Sin contenido de documento original.</em>';
+  const letterheadNote = state.letterhead.enabled && state.letterhead.html
+    ? `<div style="background:#fdf4ff;border-left:4px solid #ec4899;padding:10px 14px;border-radius:6px;margin:16px 0;font-size:13px;font-family:Inter,sans-serif">
+         <strong style="color:#ec4899">📄 Membrete activo:</strong>
+         <span style="color:#4b5563"> ${escapeHtml(state.letterhead.fileName)} — se insertará al inicio del documento Word descargado</span>
+       </div>`
+    : '';
+
+  return `
+    <div style="font-family:Inter,sans-serif">
+      <div data-acta-header style="background:linear-gradient(135deg,#f5f3ff,#eff6ff);border:2px solid #7c3aed30;border-radius:12px;padding:20px 24px;margin-bottom:24px;font-family:'Georgia',serif">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#7c3aed,#3b82f6);display:grid;place-items:center;flex-shrink:0">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+          </div>
+          <div style="font-size:11px;color:#6b7280;font-family:Inter,sans-serif;font-weight:600;letter-spacing:0.05em;text-transform:uppercase">Encabezado oficial del acta</div>
+        </div>
+        <p style="font-size:15px;line-height:1.7;color:#1f2937;margin:0;font-weight:500;text-align:justify">
+          <strong>${actaHeader}</strong>
+        </p>
+      </div>
+
+      <div style="background:linear-gradient(135deg,#7c3aed15,#3b82f615);border:1px solid #7c3aed30;border-radius:10px;padding:18px 20px;margin-bottom:20px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#7c3aed,#3b82f6);display:grid;place-items:center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4"/></svg>
+          </div>
+          <div>
+            <div style="font-weight:700;font-size:15px;color:#111827">Resultado procesado por ${modelLabel}</div>
+            <div style="font-size:12px;color:#6b7280">${timestamp}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:16px;font-size:12px;color:#4b5563;flex-wrap:wrap">
+          <span>📄 ${wordCount.toLocaleString()} palabras analizadas</span>
+          <span>🧠 Modelo: ${modelLabel}</span>
+          <span>✅ Procesamiento completado</span>
+        </div>
+      </div>
+
+      ${letterheadNote}
+      ${substitutionInfo}
+
+      ${userInput ? `
+      <div style="background:#eff6ff;border-left:4px solid #3b82f6;padding:12px 16px;border-radius:6px;margin:16px 0;font-size:14px">
+        <strong style="color:#1e40af">📝 Instrucción recibida:</strong>
+        <div style="color:#1e3a8a;margin-top:4px;font-family:'JetBrains Mono',monospace;font-size:13px">${escapeHtml(userInput)}</div>
+      </div>` : ''}
+
+      <h2 style="color:#111827;border-bottom:2px solid #e5e7eb;padding-bottom:8px;margin-top:24px">Documento procesado</h2>
+      <div style="line-height:1.8;color:#1f2937">${finalDoc}</div>
+
+      <div style="margin-top:30px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;text-align:center">
+        Generado por DocuMind AI · ${modelLabel} · ${timestamp}
+      </div>
+    </div>
+  `;
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function execCmd(cmd, value = null) {
+  document.getElementById('previewEditor').focus();
+  if (cmd === 'formatBlock') document.execCommand('formatBlock', false, value);
+  else document.execCommand(cmd, false, value);
+}
+
+async function downloadDocx() {
+  if (!state.hasResult) {
+    showToast('Primero debes procesar un documento', 'error');
+    return;
+  }
+  try {
+    showToast('Generando archivo Word...', 'info');
+    const editor = document.getElementById('previewEditor');
+    const htmlContent = editor.innerHTML;
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = htmlContent;
+    const children = [];
+
+    function htmlToDocxParagraphs(container) {
+      const result = [];
+      function processNode(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+          if (node.textContent.trim()) {
+            result.push(new docx.Paragraph({ children: [new docx.TextRun({ text: node.textContent, size: 24 })] }));
+          }
+          return;
+        }
+        if (node.nodeType !== Node.ELEMENT_NODE) return;
+        const tag = node.tagName.toLowerCase();
+        const text = node.textContent || '';
+        const isActaHeader = node.getAttribute && node.getAttribute('data-acta-header');
+
+        if (isActaHeader) {
+          const pTag = node.querySelector('p');
+          const actaText = pTag ? pTag.textContent : text;
+          result.push(new docx.Paragraph({
+            children: [new docx.TextRun({ text: actaText, bold: true, size: 24, font: 'Georgia' })],
+            alignment: docx.AlignmentType.JUSTIFIED,
+            spacing: { before: 240, after: 240 },
+            border: { bottom: { color: '7c3aed', size: 6, space: 8, style: 'single' } }
+          }));
+          return;
+        }
+
+        if (tag === 'h1') {
+          result.push(new docx.Paragraph({
+            children: [new docx.TextRun({ text, bold: true, size: 36 })],
+            heading: docx.HeadingLevel.HEADING_1,
+            spacing: { before: 240, after: 120 }
+          }));
+        } else if (tag === 'h2') {
+          result.push(new docx.Paragraph({
+            children: [new docx.TextRun({ text, bold: true, size: 30 })],
+            heading: docx.HeadingLevel.HEADING_2,
+            spacing: { before: 200, after: 100 }
+          }));
+        } else if (tag === 'h3') {
+          result.push(new docx.Paragraph({
+            children: [new docx.TextRun({ text, bold: true, size: 26 })],
+            spacing: { before: 160, after: 80 }
+          }));
+        } else if (tag === 'hr') {
+          result.push(new docx.Paragraph({
+            children: [new docx.TextRun({ text: '─'.repeat(60), color: '999999', size: 20 })],
+            spacing: { before: 120, after: 120 }
+          }));
+        } else if (tag === 'ul' || tag === 'ol') {
+          Array.from(node.children).forEach(li => {
+            result.push(new docx.Paragraph({
+              children: [new docx.TextRun({ text: (tag === 'ul' ? '• ' : '  ') + li.textContent, size: 24 })],
+              spacing: { before: 60, after: 60 }
+            }));
+          });
+        } else if (tag === 'br') {
+          result.push(new docx.Paragraph({ children: [] }));
+        } else if (tag === 'img') {
+          result.push(new docx.Paragraph({
+            children: [new docx.TextRun({ text: '[Imagen del membrete]', italics: true, color: '999999', size: 20 })]
+          }));
+        } else if (['div','p','span','section','article','main','header','table','tr','td'].includes(tag)) {
+          if (tag === 'table') {
+            Array.from(node.querySelectorAll('tr')).forEach(tr => {
+              const cells = Array.from(tr.querySelectorAll('td, th')).map(c => c.textContent.trim());
+              if (cells.length) {
+                result.push(new docx.Paragraph({
+                  children: [new docx.TextRun({ text: cells.join('  |  '), size: 22 })],
+                  spacing: { before: 40, after: 40 }
+                }));
+              }
+            });
+            return;
+          }
+          if (node.children.length > 0 && !text.trim()) {
+            Array.from(node.childNodes).forEach(processNode);
+          } else if (text.trim()) {
+            const runs = [];
+            node.childNodes.forEach(child => {
+              if (child.nodeType === Node.TEXT_NODE) {
+                if (child.textContent) runs.push(new docx.TextRun({ text: child.textContent, size: 24 }));
+              } else if (child.nodeType === Node.ELEMENT_NODE) {
+                const t = child.textContent;
+                if (!t) return;
+                const opts = { text: t, size: 24 };
+                const ctag = child.tagName.toLowerCase();
+                if (ctag === 'b' || ctag === 'strong') opts.bold = true;
+                if (ctag === 'i' || ctag === 'em') opts.italics = true;
+                if (ctag === 'u') opts.underline = {};
+                runs.push(new docx.TextRun(opts));
+              }
+            });
+            if (runs.length) {
+              result.push(new docx.Paragraph({ children: runs, spacing: { before: 60, after: 60 } }));
+            }
+          }
+        } else if (text.trim()) {
+          result.push(new docx.Paragraph({
+            children: [new docx.TextRun({ text, size: 24 })],
+            spacing: { before: 60, after: 60 }
+          }));
+        }
+      }
+      Array.from(container.childNodes).forEach(processNode);
+      return result;
+    }
+
+    const includeLetterhead = document.getElementById('enableLetterhead').checked && state.letterhead.html;
+    let letterheadParagraphs = [];
+    if (includeLetterhead) {
+      const lhDiv = document.createElement('div');
+      lhDiv.innerHTML = state.letterhead.html;
+      letterheadParagraphs = htmlToDocxParagraphs(lhDiv);
+      letterheadParagraphs.push(new docx.Paragraph({
+        children: [new docx.TextRun({ text: '━'.repeat(70), color: '7c3aed', size: 16 })],
+        spacing: { before: 200, after: 300 }
+      }));
+    }
+
+    const mainParagraphs = htmlToDocxParagraphs(tempDiv);
+    const allChildren = [...letterheadParagraphs, ...mainParagraphs];
+
+    if (allChildren.length === 0) {
+      allChildren.push(new docx.Paragraph({
+        children: [new docx.TextRun({ text: 'Documento generado por DocuMind AI', size: 24 })]
+      }));
+    }
+
+    let footerChildren = [];
+    if (includeLetterhead) {
+      footerChildren.push(new docx.Paragraph({
+        children: [new docx.TextRun({ text: '─'.repeat(85), color: 'D1D5DB', size: 14 })],
+        alignment: docx.AlignmentType.CENTER,
+        spacing: { after: 60 }
+      }));
+      const lhShort = state.letterhead.plainText.substring(0, 120).trim();
+      footerChildren.push(new docx.Paragraph({
+        children: [new docx.TextRun({ text: lhShort || 'Documento con membrete', size: 16, color: '7c3aed', italics: true })],
+        alignment: docx.AlignmentType.CENTER,
+        spacing: { after: 40 }
+      }));
+      footerChildren.push(new docx.Paragraph({
+        children: [new docx.TextRun({ text: `Generado con DocuMind AI · ${new Date().toLocaleDateString('es-ES')}`, size: 14, color: '9CA3AF' })],
+        alignment: docx.AlignmentType.CENTER
+      }));
+    }
+
+    const doc = new docx.Document({
+      creator: 'DocuMind AI',
+      title: 'Acta - Delegación Contravencional',
+      description: 'Generado con asistencia de IA',
+      styles: { default: { document: { run: { font: 'Calibri', size: 24 } } } },
+      sections: [{
+        properties: { page: { margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } } },
+        footers: includeLetterhead ? { default: new docx.Footer({ children: footerChildren }) } : undefined,
+        children: allChildren
+      }]
+    });
+
+    const blob = await docx.Packer.toBlob(doc);
+    const filename = `Acta_Delegacion_Contravencional_${Date.now()}.docx`;
+    saveAs(blob, filename);
+    showToast(`Descargado: ${filename}${includeLetterhead ? ' (con membrete)' : ''}`, 'success');
+  } catch (err) {
+    console.error(err);
+    showToast('Error al generar Word: ' + err.message, 'error');
+  }
+}
+
+function resetAll() {
+  if (state.hasResult && !confirm('¿Seguro que deseas reiniciar? Se perderá el trabajo actual.')) return;
+  state.docFile = null;
+  state.docText = '';
+  state.templateFile = null;
+  state.templateHtml = '';
+  state.processedHtml = '';
+  state.hasResult = false;
+  state.actaDate = new Date();
+
+  document.getElementById('docInput').value = '';
+  document.getElementById('templateInput').value = '';
+  document.getElementById('letterheadInput').value = '';
+  document.getElementById('textInput').value = '';
+  document.getElementById('docDropZone').classList.remove('has-file');
+  document.getElementById('templateDropZone').classList.remove('has-file');
+  document.getElementById('letterheadDropZone').classList.remove('has-file');
+  document.getElementById('docChip').classList.add('hidden');
+  document.getElementById('templateChip').classList.add('hidden');
+  document.getElementById('letterheadChip').classList.add('hidden');
+  document.getElementById('letterheadPreviewWrap').classList.add('hidden');
+  document.getElementById('downloadBtn').disabled = true;
+  document.getElementById('editBadge').classList.add('hidden');
+  document.getElementById('previewEditor').innerHTML = `
+    <p style="color:#9ca3af;text-align:center;font-style:italic;font-family:Inter,sans-serif;font-size:14px">
+      El documento procesado aparecerá aquí.<br/>
+      Podrás editarlo libremente antes de descargarlo.
+    </p>
+  `;
+  updateCharCount();
+  updateActaBannerSilent();
+  showToast('Aplicación reiniciada', 'success');
+}
+
+let toastTimer;
+function showToast(msg, type = 'info') {
+  const toast = document.getElementById('toast');
+  const icons = {
+    success: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+    error: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+    info: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+  };
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `${icons[type] || icons.info}<span>${msg}</span>`;
+  clearTimeout(toastTimer);
+  requestAnimationFrame(() => toast.classList.add('show'));
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
+}
+</script>
+</body>
+</html>
